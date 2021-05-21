@@ -104,7 +104,7 @@ static CFIndex WriteDataToStream(NSData* data, CFWriteStreamRef stream)
 {
     [req setValue:@"XMLHttpRequest" forHTTPHeaderField:@"X-Requested-With"];
 
-    WKWebViewConfiguration* configuration = [[WKWebViewConfiguration alloc] init];
+    //WKWebViewConfiguration* configuration = [[WKWebViewConfiguration alloc] init];
     NSString *userAgent = configuration.applicationNameForUserAgent;
     if (userAgent) {
         [req setValue:userAgent forHTTPHeaderField:@"User-Agent"];
