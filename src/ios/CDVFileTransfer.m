@@ -67,7 +67,6 @@
     id filePlugin = [self.commandDelegate getCommandInstance:@"File"];
     SEL selector = NSSelectorFromString(@"fileSystemURLforLocalPath:");
     if (filePlugin && [filePlugin respondsToSelector:selector]) {
-        // Suppress warning for dynamic selector call
         #pragma clang diagnostic push
         #pragma clang diagnostic ignored "-Warc-performSelector-leaks"
         return [filePlugin performSelector:selector withObject:localPath];
@@ -483,7 +482,14 @@ static CFIndex WriteDataToStream(NSData* data, CFWriteStreamRef stream)
          * Check here to see if it looks like the user passed in a raw filesystem path. (Perhaps they had the path saved, and were previously using it with the old version of File). If so, normalize it by removing empty path segments, and check with File to see if any of the installed filesystems will handle it. If so, then we will end up with a filesystem url to use for the remainder of this operation.
          */
         target = [target stringByReplacingOccurrencesOfString:@"//" withString:@"/"];
-        targetURL = [[self.commandDelegate getCommandInstance:@"File"] fileSystemURLforLocalPath:target].url;
+        #if CORDOVA_VERSION_MIN_REQUIRED >= 80000
+            id filePlugin = [self.commandDelegate getCommandInstance:@"File"];
+            id fileSystemURL = [filePlugin performSelector:NSSelectorFromString(@"fileSystemURLforLocalPath:") withObject:target];
+            targetURL = [fileSystemURL valueForKey:@"url"];
+        #else
+            targetURL = [[self.commandDelegate getCommandInstance:@"File"] fileSystemURLforLocalPath:target].url;
+        #endif
+
     } else {
         targetURL = [NSURL URLWithString:target];
 
