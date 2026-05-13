@@ -35,6 +35,29 @@
 #endif
 #endif
 
+#if CORDOVA_VERSION_MIN_REQUIRED >= 80000
+@interface CDVPlugin (FileTransferRestoration)
+- (CDVFilesystem*)filesystemForURL:(CDVFilesystemURL*)localURL;
+- (CDVFilesystemURL*)fileSystemURLforLocalPath:(NSString*)localPath;
+@end
+
+@implementation CDVPlugin (FileTransferRestoration)
+- (CDVFilesystem*)filesystemForURL:(CDVFilesystemURL*)localURL {
+    CDVFile *filePlugin = [self.commandDelegate getCommandInstance:@"File"];
+    for (CDVFilesystem *fs in filePlugin.fileSystems) {
+        if ([fs.name isEqualToString:localURL.fileSystemName]) {
+            return fs;
+        }
+    }
+    return nil;
+}
+- (CDVFilesystemURL*)fileSystemURLforLocalPath:(NSString*)localPath {
+    CDVFile *filePlugin = [self.commandDelegate getCommandInstance:@"File"];
+    return [filePlugin fileSystemURLforLocalPath:localPath];
+}
+@end
+#endif
+
 @interface CDVFileTransfer ()
 // Sets the requests headers for the request.
 - (void)applyRequestHeaders:(NSDictionary*)headers toRequest:(NSMutableURLRequest*)req;
