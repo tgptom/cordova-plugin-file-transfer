@@ -20,7 +20,7 @@
 #import <Cordova/CDV.h>
 #import "CDVFileTransfer.h"
 #import "CDVLocalFilesystem.h"
-#import "CDVFile.h"
+#import <CDVFile/CDVFile.h>
 #import "WebKit/WKWebViewConfiguration.h"
 
 #import <AssetsLibrary/ALAsset.h>
