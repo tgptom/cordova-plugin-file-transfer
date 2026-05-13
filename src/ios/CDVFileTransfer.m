@@ -20,6 +20,7 @@
 #import <Cordova/CDV.h>
 #import "CDVFileTransfer.h"
 #import "CDVLocalFilesystem.h"
+#import "CDVFile.h"
 #import "WebKit/WKWebViewConfiguration.h"
 
 #import <AssetsLibrary/ALAsset.h>
@@ -40,7 +41,6 @@
 - (CDVFilesystem*)filesystemForURL:(CDVFilesystemURL*)localURL;
 - (CDVFilesystemURL*)fileSystemURLforLocalPath:(NSString*)localPath;
 @end
-
 @implementation CDVPlugin (FileTransferRestoration)
 - (CDVFilesystem*)filesystemForURL:(CDVFilesystemURL*)localURL {
     CDVFile *filePlugin = [self.commandDelegate getCommandInstance:@"File"];
