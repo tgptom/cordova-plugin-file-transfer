@@ -20,7 +20,6 @@
 #import <Cordova/CDV.h>
 #import "CDVFileTransfer.h"
 #import "CDVLocalFilesystem.h"
-#import <CDVFile/CDVFile.h>
 #import "WebKit/WKWebViewConfiguration.h"
 
 #import <AssetsLibrary/ALAsset.h>
@@ -38,23 +37,45 @@
 
 #if CORDOVA_VERSION_MIN_REQUIRED >= 80000
 @interface CDVPlugin (FileTransferRestoration)
-- (CDVFilesystem*)filesystemForURL:(CDVFilesystemURL*)localURL;
-- (CDVFilesystemURL*)fileSystemURLforLocalPath:(NSString*)localPath;
+- (id)filesystemForURL:(id)localURL;
+- (id)fileSystemURLforLocalPath:(NSString*)localPath;
 @end
+
 @implementation CDVPlugin (FileTransferRestoration)
-- (CDVFilesystem*)filesystemForURL:(CDVFilesystemURL*)localURL {
-    CDVFile *filePlugin = [self.commandDelegate getCommandInstance:@"File"];
-    for (CDVFilesystem *fs in filePlugin.fileSystems) {
-        if ([fs.name isEqualToString:localURL.fileSystemName]) {
-            return fs;
+
+- (id)filesystemForURL:(id)localURL {
+    // Dynamically get the File plugin instance
+    id filePlugin = [self.commandDelegate getCommandInstance:@"File"];
+    if (filePlugin) {
+        // Use reflection to get the 'fileSystems' array
+        SEL selector = NSSelectorFromString(@"fileSystems");
+        if ([filePlugin respondsToSelector:selector]) {
+            NSArray *fss = [filePlugin performSelector:selector];
+            NSString *targetFsName = [localURL valueForKey:@"fileSystemName"];
+            
+            for (id fs in fss) {
+                if ([[fs valueForKey:@"name"] isEqualToString:targetFsName]) {
+                    return fs;
+                }
+            }
         }
     }
     return nil;
 }
-- (CDVFilesystemURL*)fileSystemURLforLocalPath:(NSString*)localPath {
-    CDVFile *filePlugin = [self.commandDelegate getCommandInstance:@"File"];
-    return [filePlugin fileSystemURLforLocalPath:localPath];
+
+- (id)fileSystemURLforLocalPath:(NSString*)localPath {
+    id filePlugin = [self.commandDelegate getCommandInstance:@"File"];
+    SEL selector = NSSelectorFromString(@"fileSystemURLforLocalPath:");
+    if (filePlugin && [filePlugin respondsToSelector:selector]) {
+        // Suppress warning for dynamic selector call
+        #pragma clang diagnostic push
+        #pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+        return [filePlugin performSelector:selector withObject:localPath];
+        #pragma clang diagnostic pop
+    }
+    return nil;
 }
+
 @end
 #endif
 
