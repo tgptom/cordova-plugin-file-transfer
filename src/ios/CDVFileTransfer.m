@@ -106,6 +106,12 @@ static CFIndex WriteDataToStream(NSData* data, CFWriteStreamRef stream)
     NSRange queryRange = [pathAndSuffix rangeOfString:@"?"];
     NSRange fragmentRange = [pathAndSuffix rangeOfString:@"#"];
 
+    if ((queryRange.location != NSNotFound) &&
+            (fragmentRange.location != NSNotFound) &&
+            (fragmentRange.location < queryRange.location)) {
+        queryRange = NSMakeRange(NSNotFound, 0);
+    }
+
     if (queryRange.location != NSNotFound) {
         pathEndIndex = MIN(pathEndIndex, queryRange.location);
     }
@@ -118,7 +124,7 @@ static CFIndex WriteDataToStream(NSData* data, CFWriteStreamRef stream)
     NSString* encodedPathComponent = [pathComponent stringByAddingPercentEncodingWithAllowedCharacters:urlPathAllowedCharacterSet];
 
     if (encodedPathComponent == nil) {
-        NSLog(@"File Transfer Warning: Failed to encode URL path %@", urlString);
+        NSLog(@"File Transfer Warning: Failed to encode URL path component %@", pathComponent);
         return urlString;
     }
 
