@@ -87,7 +87,7 @@ static CFIndex WriteDataToStream(NSData* data, CFWriteStreamRef stream)
 
 - (NSString*)escapePathComponentForUrlString:(NSString*)urlString
 {
-    static NSCharacterSet* urlPathAllowedCharacterSet = nil;
+    static NSCharacterSet* __strong urlPathAllowedCharacterSet = nil;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         urlPathAllowedCharacterSet = [NSCharacterSet URLPathAllowedCharacterSet];
@@ -118,6 +118,7 @@ static CFIndex WriteDataToStream(NSData* data, CFWriteStreamRef stream)
     NSString* encodedPathComponent = [pathComponent stringByAddingPercentEncodingWithAllowedCharacters:urlPathAllowedCharacterSet];
 
     if (encodedPathComponent == nil) {
+        NSLog(@"File Transfer Warning: Failed to encode URL path %@", urlString);
         return urlString;
     }
 
