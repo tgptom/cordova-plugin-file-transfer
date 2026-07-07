@@ -87,6 +87,12 @@ static CFIndex WriteDataToStream(NSData* data, CFWriteStreamRef stream)
 
 - (NSString*)escapePathComponentForUrlString:(NSString*)urlString
 {
+    static NSCharacterSet* urlPathAllowedCharacterSet = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        urlPathAllowedCharacterSet = [NSCharacterSet URLPathAllowedCharacterSet];
+    });
+
     NSRange schemeAndHostRange = [urlString rangeOfString:@"://.*?/" options:NSRegularExpressionSearch];
 
     if (schemeAndHostRange.length == 0) {
@@ -96,20 +102,20 @@ static CFIndex WriteDataToStream(NSData* data, CFWriteStreamRef stream)
     NSInteger schemeAndHostEndIndex = NSMaxRange(schemeAndHostRange);
     NSString* schemeAndHost = [urlString substringToIndex:schemeAndHostEndIndex];
     NSString* pathAndSuffix = [urlString substringFromIndex:schemeAndHostEndIndex];
-    NSUInteger suffixIndex = [pathAndSuffix length];
+    NSUInteger pathEndIndex = [pathAndSuffix length];
     NSRange queryRange = [pathAndSuffix rangeOfString:@"?"];
     NSRange fragmentRange = [pathAndSuffix rangeOfString:@"#"];
 
     if (queryRange.location != NSNotFound) {
-        suffixIndex = MIN(suffixIndex, queryRange.location);
+        pathEndIndex = MIN(pathEndIndex, queryRange.location);
     }
     if (fragmentRange.location != NSNotFound) {
-        suffixIndex = MIN(suffixIndex, fragmentRange.location);
+        pathEndIndex = MIN(pathEndIndex, fragmentRange.location);
     }
 
-    NSString* pathComponent = [pathAndSuffix substringToIndex:suffixIndex];
-    NSString* suffix = [pathAndSuffix substringFromIndex:suffixIndex];
-    NSString* escapedPathComponent = [pathComponent stringByAddingPercentEncodingWithAllowedCharacters:[NSCharacterSet URLPathAllowedCharacterSet]];
+    NSString* pathComponent = [pathAndSuffix substringToIndex:pathEndIndex];
+    NSString* suffix = [pathAndSuffix substringFromIndex:pathEndIndex];
+    NSString* escapedPathComponent = [pathComponent stringByAddingPercentEncodingWithAllowedCharacters:urlPathAllowedCharacterSet];
 
     if (escapedPathComponent == nil) {
         return urlString;
