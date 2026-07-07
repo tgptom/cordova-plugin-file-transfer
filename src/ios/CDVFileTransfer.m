@@ -105,13 +105,13 @@ static CFIndex WriteDataToStream(NSData* data, CFWriteStreamRef stream)
     NSUInteger pathEndIndex = [pathAndSuffix length];
     NSRange queryRange = [pathAndSuffix rangeOfString:@"?"];
     NSRange fragmentRange = [pathAndSuffix rangeOfString:@"#"];
-    BOOL hasInvalidQueryAfterFragment = (queryRange.location != NSNotFound) &&
+    BOOL queryAppearsAfterFragment = (queryRange.location != NSNotFound) &&
         (fragmentRange.location != NSNotFound) &&
         (fragmentRange.location < queryRange.location);
 
-    // Fragments terminate the URL path/query portion, so ignore any invalid
-    // query marker that appears after the fragment delimiter.
-    if (hasInvalidQueryAfterFragment) {
+    // A question mark after the fragment delimiter is part of the fragment, not
+    // the URL path/query portion, so keep it in the suffix.
+    if (queryAppearsAfterFragment) {
         queryRange = NSMakeRange(NSNotFound, 0);
     }
 
@@ -127,7 +127,7 @@ static CFIndex WriteDataToStream(NSData* data, CFWriteStreamRef stream)
     NSString* encodedPathComponent = [pathComponent stringByAddingPercentEncodingWithAllowedCharacters:pathAllowedCharSet];
 
     if (encodedPathComponent == nil) {
-        NSLog(@"File Transfer Warning: Failed to percent-encode URL path component %@. The path may contain invalid Unicode sequences.", pathComponent);
+        NSLog(@"File Transfer Warning: Failed to percent-encode URL path component %@. The path may contain characters that cannot be encoded.", pathComponent);
         return nil;
     }
 
