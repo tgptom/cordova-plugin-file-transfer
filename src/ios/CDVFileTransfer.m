@@ -106,6 +106,8 @@ static CFIndex WriteDataToStream(NSData* data, CFWriteStreamRef stream)
     NSRange queryRange = [pathAndSuffix rangeOfString:@"?"];
     NSRange fragmentRange = [pathAndSuffix rangeOfString:@"#"];
 
+    // Fragments terminate the URL path/query portion, so ignore any malformed
+    // query marker that appears after the fragment delimiter.
     if ((queryRange.location != NSNotFound) &&
             (fragmentRange.location != NSNotFound) &&
             (fragmentRange.location < queryRange.location)) {
@@ -125,7 +127,7 @@ static CFIndex WriteDataToStream(NSData* data, CFWriteStreamRef stream)
 
     if (encodedPathComponent == nil) {
         NSLog(@"File Transfer Warning: Failed to encode URL path component %@", pathComponent);
-        return urlString;
+        return nil;
     }
 
     return [schemeAndHost stringByAppendingFormat:@"%@%@", encodedPathComponent, suffix];
