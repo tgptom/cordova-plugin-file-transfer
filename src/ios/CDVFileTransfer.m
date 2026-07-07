@@ -105,13 +105,13 @@ static CFIndex WriteDataToStream(NSData* data, CFWriteStreamRef stream)
     NSUInteger pathEndIndex = [pathAndSuffix length];
     NSRange queryRange = [pathAndSuffix rangeOfString:@"?"];
     NSRange fragmentRange = [pathAndSuffix rangeOfString:@"#"];
-    BOOL hasQueryAfterFragment = (queryRange.location != NSNotFound) &&
+    BOOL hasMalformedQueryAfterFragment = (queryRange.location != NSNotFound) &&
         (fragmentRange.location != NSNotFound) &&
         (fragmentRange.location < queryRange.location);
 
     // Fragments terminate the URL path/query portion, so ignore any malformed
     // query marker that appears after the fragment delimiter.
-    if (hasQueryAfterFragment) {
+    if (hasMalformedQueryAfterFragment) {
         queryRange = NSMakeRange(NSNotFound, 0);
     }
 
