@@ -87,7 +87,7 @@ static CFIndex WriteDataToStream(NSData* data, CFWriteStreamRef stream)
 
 - (NSString*)escapePathComponentForUrlString:(NSString*)urlString
 {
-    static NSCharacterSet* __strong pathAllowedCharSet = nil;
+    static NSCharacterSet* pathAllowedCharSet = nil;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         pathAllowedCharSet = [NSCharacterSet URLPathAllowedCharacterSet];
@@ -105,13 +105,13 @@ static CFIndex WriteDataToStream(NSData* data, CFWriteStreamRef stream)
     NSUInteger pathEndIndex = [pathAndSuffix length];
     NSRange queryRange = [pathAndSuffix rangeOfString:@"?"];
     NSRange fragmentRange = [pathAndSuffix rangeOfString:@"#"];
-    BOOL hasMalformedQueryAfterFragment = (queryRange.location != NSNotFound) &&
+    BOOL shouldIgnoreQueryAfterFragment = (queryRange.location != NSNotFound) &&
         (fragmentRange.location != NSNotFound) &&
         (fragmentRange.location < queryRange.location);
 
-    // Fragments terminate the URL path/query portion, so ignore any malformed
+    // Fragments terminate the URL path/query portion, so ignore any invalid
     // query marker that appears after the fragment delimiter.
-    if (hasMalformedQueryAfterFragment) {
+    if (shouldIgnoreQueryAfterFragment) {
         queryRange = NSMakeRange(NSNotFound, 0);
     }
 
@@ -127,7 +127,7 @@ static CFIndex WriteDataToStream(NSData* data, CFWriteStreamRef stream)
     NSString* encodedPathComponent = [pathComponent stringByAddingPercentEncodingWithAllowedCharacters:pathAllowedCharSet];
 
     if (encodedPathComponent == nil) {
-        NSLog(@"File Transfer Warning: Failed to percent-encode URL path component %@. Please provide a pre-encoded URL.", pathComponent);
+        NSLog(@"File Transfer Warning: Failed to percent-encode URL path component %@. Please verify the path only contains characters that can be encoded in a URL.", pathComponent);
         return nil;
     }
 
