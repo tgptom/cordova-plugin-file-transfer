@@ -21,9 +21,6 @@
 #import "CDVFileTransfer.h"
 #import "CDVLocalFilesystem.h"
 
-#import <AssetsLibrary/ALAsset.h>
-#import <AssetsLibrary/ALAssetRepresentation.h>
-#import <AssetsLibrary/ALAssetsLibrary.h>
 #import <CFNetwork/CFNetwork.h>
 
 #ifndef DLog
@@ -49,6 +46,10 @@ static const NSUInteger kStreamBufferSize = 32768;
 NSString* const kOptionsKeyCookie = @"__cookie";
 // Form boundary for multi-part requests.
 NSString* const kFormBoundary = @"+++++org.apache.cordova.formBoundary";
+
+// TODO: Migrate the iOS transfer implementation to NSURLSession once upload
+// streaming, auth challenge handling, progress callbacks, abort behavior, and
+// background execution parity can be regression-tested across cordova-ios 7/8.
 
 // Writes the given data to the stream in a blocking way.
 // If successful, returns bytesToWrite.
@@ -94,10 +95,27 @@ static CFIndex WriteDataToStream(NSData* data, CFWriteStreamRef stream)
 
     NSInteger schemeAndHostEndIndex = NSMaxRange(schemeAndHostRange);
     NSString* schemeAndHost = [urlString substringToIndex:schemeAndHostEndIndex];
-    NSString* pathComponent = [urlString substringFromIndex:schemeAndHostEndIndex];
-    pathComponent = [pathComponent stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
+    NSString* pathAndSuffix = [urlString substringFromIndex:schemeAndHostEndIndex];
+    NSUInteger suffixIndex = [pathAndSuffix length];
+    NSRange queryRange = [pathAndSuffix rangeOfString:@"?"];
+    NSRange fragmentRange = [pathAndSuffix rangeOfString:@"#"];
 
-    return [schemeAndHost stringByAppendingString:pathComponent];
+    if (queryRange.location != NSNotFound) {
+        suffixIndex = MIN(suffixIndex, queryRange.location);
+    }
+    if (fragmentRange.location != NSNotFound) {
+        suffixIndex = MIN(suffixIndex, fragmentRange.location);
+    }
+
+    NSString* pathComponent = [pathAndSuffix substringToIndex:suffixIndex];
+    NSString* suffix = [pathAndSuffix substringFromIndex:suffixIndex];
+    NSString* escapedPathComponent = [pathComponent stringByAddingPercentEncodingWithAllowedCharacters:[NSCharacterSet URLPathAllowedCharacterSet]];
+
+    if (escapedPathComponent == nil) {
+        return urlString;
+    }
+
+    return [schemeAndHost stringByAppendingFormat:@"%@%@", escapedPathComponent, suffix];
 }
 
 - (void)applyRequestHeaders:(NSDictionary*)headers toRequest:(NSMutableURLRequest*)req
@@ -152,6 +170,10 @@ static CFIndex WriteDataToStream(NSData* data, CFWriteStreamRef stream)
     // NSURL does not accepts URLs with spaces in the path. We escape the path in order
     // to be more lenient.
     NSURL* url = [NSURL URLWithString:server];
+
+    if (!url) {
+        url = [NSURL URLWithString:[self escapePathComponentForUrlString:server]];
+    }
 
     if (!url) {
         errorCode = INVALID_URL_ERR;
@@ -445,6 +467,10 @@ static CFIndex WriteDataToStream(NSData* data, CFWriteStreamRef stream)
     }
 
     NSURL* sourceURL = [NSURL URLWithString:source];
+
+    if (!sourceURL) {
+        sourceURL = [NSURL URLWithString:[self escapePathComponentForUrlString:source]];
+    }
 
     if (!sourceURL) {
         errorCode = INVALID_URL_ERR;
