@@ -115,13 +115,13 @@ static CFIndex WriteDataToStream(NSData* data, CFWriteStreamRef stream)
 
     NSString* pathComponent = [pathAndSuffix substringToIndex:pathEndIndex];
     NSString* suffix = [pathAndSuffix substringFromIndex:pathEndIndex];
-    NSString* escapedPathComponent = [pathComponent stringByAddingPercentEncodingWithAllowedCharacters:urlPathAllowedCharacterSet];
+    NSString* encodedPathComponent = [pathComponent stringByAddingPercentEncodingWithAllowedCharacters:urlPathAllowedCharacterSet];
 
-    if (escapedPathComponent == nil) {
+    if (encodedPathComponent == nil) {
         return urlString;
     }
 
-    return [schemeAndHost stringByAppendingFormat:@"%@%@", escapedPathComponent, suffix];
+    return [schemeAndHost stringByAppendingFormat:@"%@%@", encodedPathComponent, suffix];
 }
 
 - (void)applyRequestHeaders:(NSDictionary*)headers toRequest:(NSMutableURLRequest*)req
