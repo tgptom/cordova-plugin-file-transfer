@@ -87,10 +87,10 @@ static CFIndex WriteDataToStream(NSData* data, CFWriteStreamRef stream)
 
 - (NSString*)escapePathComponentForUrlString:(NSString*)urlString
 {
-    static NSCharacterSet* __strong urlPathAllowedCharacterSet = nil;
+    static NSCharacterSet* __strong pathAllowedCharSet = nil;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        urlPathAllowedCharacterSet = [NSCharacterSet URLPathAllowedCharacterSet];
+        pathAllowedCharSet = [NSCharacterSet URLPathAllowedCharacterSet];
     });
 
     NSRange schemeAndHostRange = [urlString rangeOfString:@"://.*?/" options:NSRegularExpressionSearch];
@@ -105,12 +105,13 @@ static CFIndex WriteDataToStream(NSData* data, CFWriteStreamRef stream)
     NSUInteger pathEndIndex = [pathAndSuffix length];
     NSRange queryRange = [pathAndSuffix rangeOfString:@"?"];
     NSRange fragmentRange = [pathAndSuffix rangeOfString:@"#"];
+    BOOL hasQueryAfterFragment = (queryRange.location != NSNotFound) &&
+        (fragmentRange.location != NSNotFound) &&
+        (fragmentRange.location < queryRange.location);
 
     // Fragments terminate the URL path/query portion, so ignore any malformed
     // query marker that appears after the fragment delimiter.
-    if ((queryRange.location != NSNotFound) &&
-            (fragmentRange.location != NSNotFound) &&
-            (fragmentRange.location < queryRange.location)) {
+    if (hasQueryAfterFragment) {
         queryRange = NSMakeRange(NSNotFound, 0);
     }
 
@@ -123,10 +124,10 @@ static CFIndex WriteDataToStream(NSData* data, CFWriteStreamRef stream)
 
     NSString* pathComponent = [pathAndSuffix substringToIndex:pathEndIndex];
     NSString* suffix = [pathAndSuffix substringFromIndex:pathEndIndex];
-    NSString* encodedPathComponent = [pathComponent stringByAddingPercentEncodingWithAllowedCharacters:urlPathAllowedCharacterSet];
+    NSString* encodedPathComponent = [pathComponent stringByAddingPercentEncodingWithAllowedCharacters:pathAllowedCharSet];
 
     if (encodedPathComponent == nil) {
-        NSLog(@"File Transfer Warning: Failed to encode URL path component %@", pathComponent);
+        NSLog(@"File Transfer Warning: Failed to percent-encode URL path component %@. Please provide a pre-encoded URL.", pathComponent);
         return nil;
     }
 
