@@ -20,7 +20,6 @@
 #import <Cordova/CDV.h>
 #import "CDVFileTransfer.h"
 #import "CDVLocalFilesystem.h"
-#import "WebKit/WKWebViewConfiguration.h"
 
 #import <AssetsLibrary/ALAsset.h>
 #import <AssetsLibrary/ALAssetRepresentation.h>
@@ -33,49 +32,6 @@
 #else
     #define DLog(...)
 #endif
-#endif
-
-#if CORDOVA_VERSION_MIN_REQUIRED >= 80000
-@interface CDVPlugin (FileTransferRestoration)
-- (id)filesystemForURL:(id)localURL;
-- (id)fileSystemURLforLocalPath:(NSString*)localPath;
-@end
-
-@implementation CDVPlugin (FileTransferRestoration)
-
-- (id)filesystemForURL:(id)localURL {
-    // Dynamically get the File plugin instance
-    id filePlugin = [self.commandDelegate getCommandInstance:@"File"];
-    if (filePlugin) {
-        // Use reflection to get the 'fileSystems' array
-        SEL selector = NSSelectorFromString(@"fileSystems");
-        if ([filePlugin respondsToSelector:selector]) {
-            NSArray *fss = [filePlugin performSelector:selector];
-            NSString *targetFsName = [localURL valueForKey:@"fileSystemName"];
-            
-            for (id fs in fss) {
-                if ([[fs valueForKey:@"name"] isEqualToString:targetFsName]) {
-                    return fs;
-                }
-            }
-        }
-    }
-    return nil;
-}
-
-- (id)fileSystemURLforLocalPath:(NSString*)localPath {
-    id filePlugin = [self.commandDelegate getCommandInstance:@"File"];
-    SEL selector = NSSelectorFromString(@"fileSystemURLforLocalPath:");
-    if (filePlugin && [filePlugin respondsToSelector:selector]) {
-        #pragma clang diagnostic push
-        #pragma clang diagnostic ignored "-Warc-performSelector-leaks"
-        return [filePlugin performSelector:selector withObject:localPath];
-        #pragma clang diagnostic pop
-    }
-    return nil;
-}
-
-@end
 #endif
 
 @interface CDVFileTransfer ()
@@ -146,14 +102,6 @@ static CFIndex WriteDataToStream(NSData* data, CFWriteStreamRef stream)
 
 - (void)applyRequestHeaders:(NSDictionary*)headers toRequest:(NSMutableURLRequest*)req
 {
-    [req setValue:@"XMLHttpRequest" forHTTPHeaderField:@"X-Requested-With"];
-
-    WKWebViewConfiguration* configuration = [[WKWebViewConfiguration alloc] init];
-    NSString *userAgent = configuration.applicationNameForUserAgent;
-    if (userAgent) {
-        [req setValue:userAgent forHTTPHeaderField:@"User-Agent"];
-    }
-
     for (NSString* headerName in headers) {
         id value = [headers objectForKey:headerName];
         if (!value || (value == [NSNull null])) {
@@ -341,7 +289,7 @@ static CFIndex WriteDataToStream(NSData* data, CFWriteStreamRef stream)
     delegate.source = source;
     delegate.target = server;
     delegate.trustAllHosts = trustAllHosts;
-    delegate.filePlugin = [self.commandDelegate getCommandInstance:@"File"];
+    delegate.filePlugin = (CDVFile *)[self.commandDelegate getCommandInstance:@"File"];
     delegate.chunkedMode = chunkedMode;
 
     return delegate;
@@ -380,7 +328,8 @@ static CFIndex WriteDataToStream(NSData* data, CFWriteStreamRef stream)
     if (sourceURL) {
         // Try to get a CDVFileSystem which will handle this file.
         // This requires talking to the current CDVFile plugin.
-        fs = [[self.commandDelegate getCommandInstance:@"File"] filesystemForURL:sourceURL];
+        CDVFile *filePlugin = (CDVFile *)[self.commandDelegate getCommandInstance:@"File"];
+        fs = [filePlugin filesystemForURL:sourceURL];
     }
     if (fs) {
         __weak CDVFileTransfer* weakSelf = self;
@@ -482,14 +431,8 @@ static CFIndex WriteDataToStream(NSData* data, CFWriteStreamRef stream)
          * Check here to see if it looks like the user passed in a raw filesystem path. (Perhaps they had the path saved, and were previously using it with the old version of File). If so, normalize it by removing empty path segments, and check with File to see if any of the installed filesystems will handle it. If so, then we will end up with a filesystem url to use for the remainder of this operation.
          */
         target = [target stringByReplacingOccurrencesOfString:@"//" withString:@"/"];
-        #if CORDOVA_VERSION_MIN_REQUIRED >= 80000
-            id filePlugin = [self.commandDelegate getCommandInstance:@"File"];
-            id fileSystemURL = [filePlugin performSelector:NSSelectorFromString(@"fileSystemURLforLocalPath:") withObject:target];
-            targetURL = [fileSystemURL valueForKey:@"url"];
-        #else
-            targetURL = [[self.commandDelegate getCommandInstance:@"File"] fileSystemURLforLocalPath:target].url;
-        #endif
-
+        CDVFile *filePlugin = (CDVFile *)[self.commandDelegate getCommandInstance:@"File"];
+        targetURL = [filePlugin fileSystemURLforLocalPath:target].url;
     } else {
         targetURL = [NSURL URLWithString:target];
 
@@ -535,7 +478,7 @@ static CFIndex WriteDataToStream(NSData* data, CFWriteStreamRef stream)
     delegate.target = [targetURL absoluteString];
     delegate.targetURL = targetURL;
     delegate.trustAllHosts = trustAllHosts;
-    delegate.filePlugin = [self.commandDelegate getCommandInstance:@"File"];
+    delegate.filePlugin = (CDVFile *)[self.commandDelegate getCommandInstance:@"File"];
     delegate.backgroundTaskID = [[UIApplication sharedApplication] beginBackgroundTaskWithExpirationHandler:^{
         [delegate cancelTransfer:delegate.connection];
     }];
