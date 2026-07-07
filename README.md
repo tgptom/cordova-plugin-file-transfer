@@ -63,7 +63,8 @@ cordova plugin add cordova-plugin-file-transfer
 ## Platform compatibility
 
 - The JavaScript `FileTransfer` API exposed by this plugin is unchanged.
-- Engine metadata remains at the existing minimums (`cordova-android >=12`, `cordova-ios >=7`) so supported releases within those ranges are not intentionally dropped, but this refresh was smoke-tested against `cordova-android@14`/`cordova-android@15` and `cordova-ios@7`/`cordova-ios@8`.
+- Engine metadata remains at the existing minimums (`cordova-android >=12`, `cordova-ios >=7`) so supported releases within those ranges are not intentionally dropped.
+- This refresh was smoke-tested against `cordova-android@14`/`cordova-android@15` and `cordova-ios@7`/`cordova-ios@8`.
 - The iOS implementation no longer links `AssetsLibrary.framework`, which is no longer used by this plugin.
 - The iOS native transfer implementation still uses `NSURLConnection` to preserve the plugin's existing upload streaming, authentication challenge, progress, abort, and background execution behavior. Migrating to `NSURLSession` is still future work and should be done with broader native regression coverage.
 
