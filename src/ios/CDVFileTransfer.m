@@ -21,9 +21,6 @@
 #import "CDVFileTransfer.h"
 #import "CDVLocalFilesystem.h"
 
-#import <AssetsLibrary/ALAsset.h>
-#import <AssetsLibrary/ALAssetRepresentation.h>
-#import <AssetsLibrary/ALAssetsLibrary.h>
 #import <CFNetwork/CFNetwork.h>
 
 #ifndef DLog
@@ -49,6 +46,10 @@ static const NSUInteger kStreamBufferSize = 32768;
 NSString* const kOptionsKeyCookie = @"__cookie";
 // Form boundary for multi-part requests.
 NSString* const kFormBoundary = @"+++++org.apache.cordova.formBoundary";
+
+// TODO: Migrate the iOS transfer implementation to NSURLSession once upload
+// streaming, auth challenge handling, progress callbacks, abort behavior, and
+// background execution parity can be regression-tested across cordova-ios 7/8.
 
 // Writes the given data to the stream in a blocking way.
 // If successful, returns bytesToWrite.
@@ -86,6 +87,12 @@ static CFIndex WriteDataToStream(NSData* data, CFWriteStreamRef stream)
 
 - (NSString*)escapePathComponentForUrlString:(NSString*)urlString
 {
+    static NSCharacterSet* pathAllowedCharSet = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        pathAllowedCharSet = [NSCharacterSet URLPathAllowedCharacterSet];
+    });
+
     NSRange schemeAndHostRange = [urlString rangeOfString:@"://.*?/" options:NSRegularExpressionSearch];
 
     if (schemeAndHostRange.length == 0) {
@@ -94,10 +101,37 @@ static CFIndex WriteDataToStream(NSData* data, CFWriteStreamRef stream)
 
     NSInteger schemeAndHostEndIndex = NSMaxRange(schemeAndHostRange);
     NSString* schemeAndHost = [urlString substringToIndex:schemeAndHostEndIndex];
-    NSString* pathComponent = [urlString substringFromIndex:schemeAndHostEndIndex];
-    pathComponent = [pathComponent stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
+    NSString* pathAndSuffix = [urlString substringFromIndex:schemeAndHostEndIndex];
+    NSUInteger pathEndIndex = [pathAndSuffix length];
+    NSRange queryRange = [pathAndSuffix rangeOfString:@"?"];
+    NSRange fragmentRange = [pathAndSuffix rangeOfString:@"#"];
+    BOOL queryAppearsAfterFragment = (queryRange.location != NSNotFound) &&
+        (fragmentRange.location != NSNotFound) &&
+        (fragmentRange.location < queryRange.location);
 
-    return [schemeAndHost stringByAppendingString:pathComponent];
+    // A question mark after the fragment delimiter is part of the fragment, not
+    // the URL path/query portion, so keep it in the suffix.
+    if (queryAppearsAfterFragment) {
+        queryRange = NSMakeRange(NSNotFound, 0);
+    }
+
+    if (queryRange.location != NSNotFound) {
+        pathEndIndex = MIN(pathEndIndex, queryRange.location);
+    }
+    if (fragmentRange.location != NSNotFound) {
+        pathEndIndex = MIN(pathEndIndex, fragmentRange.location);
+    }
+
+    NSString* pathComponent = [pathAndSuffix substringToIndex:pathEndIndex];
+    NSString* suffix = [pathAndSuffix substringFromIndex:pathEndIndex];
+    NSString* encodedPathComponent = [pathComponent stringByAddingPercentEncodingWithAllowedCharacters:pathAllowedCharSet];
+
+    if (encodedPathComponent == nil) {
+        NSLog(@"File Transfer Warning: Failed to percent-encode URL path component %@. The path may contain characters that cannot be encoded.", pathComponent);
+        return nil;
+    }
+
+    return [schemeAndHost stringByAppendingFormat:@"%@%@", encodedPathComponent, suffix];
 }
 
 - (void)applyRequestHeaders:(NSDictionary*)headers toRequest:(NSMutableURLRequest*)req
@@ -152,6 +186,10 @@ static CFIndex WriteDataToStream(NSData* data, CFWriteStreamRef stream)
     // NSURL does not accepts URLs with spaces in the path. We escape the path in order
     // to be more lenient.
     NSURL* url = [NSURL URLWithString:server];
+
+    if (!url) {
+        url = [NSURL URLWithString:[self escapePathComponentForUrlString:server]];
+    }
 
     if (!url) {
         errorCode = INVALID_URL_ERR;
@@ -445,6 +483,10 @@ static CFIndex WriteDataToStream(NSData* data, CFWriteStreamRef stream)
     }
 
     NSURL* sourceURL = [NSURL URLWithString:source];
+
+    if (!sourceURL) {
+        sourceURL = [NSURL URLWithString:[self escapePathComponentForUrlString:source]];
+    }
 
     if (!sourceURL) {
         errorCode = INVALID_URL_ERR;
