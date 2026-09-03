@@ -1,0 +1,9 @@
+{
+    "platform": "browser@latest",
+    "action": "run",
+    "cleanUpAfterRun": true,
+    "verbose": true,
+    "args": [
+        "--target=chrome"
+    ]
+}
